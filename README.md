@@ -110,147 +110,18 @@ Catch Anything V3 是一个融合多策略的目标追踪系统，专为处理�
 
 ---
 
+## 🧠 算法要点
+
+* **光流主线**：`cv2.goodFeaturesToTrack` + `cv2.calcOpticalFlowPyrLK`，对离群点做中位数过滤，使用包围盒更新位置与尺度。
+* **卡尔曼滤波辅助**：有有效测量则 `correct`，否则使用预测框平滑显示；
+* **模板匹配**：统一在灰度图进行，周期性触发或异常触发；优先在上次 bbox 周边的**局部窗口**搜索（`match_template_nearby`），仅在必要时全图。
+* **颜色回捕**：
+
+  * HSV 反投影（`cv2.calcBackProject`）配合 CamShift 微调（保留逻辑）。
+  * **Lab 主色快速回捕**：无 SciPy 依赖，降采样 + 量化直方图（`dominant_color_lab_fast`）估计主色；对全图做快速阈值/轮廓筛选后按面积与上一尺度相近原则选取最佳候选（`recover_by_color_similarity_fast`）。
+* **自适应**：根据 ROI 尺寸动态调整光流/角点参数（`adjust_parameters_by_roi_size`）；稳定帧增多→**延长匹配间隔**，异常→**缩短间隔**。
 
 
-## 🧮 核心算法
-
-本项目采用“**稀疏光流 + 局部模板匹配 + 颜色/直方图恢复 + 自适应模板**”的多源融合方案，实现对小目标在遮挡与外观变化场景下的稳健实时跟踪。
-
-### 1) 稀疏光流（Pyramidal Lucas–Kanade, KLT）与角点筛选（Shi–Tomasi）
-
-**亮度恒常 + 小位移线性化**：对帧间位移 \$ \mathbf{u}=\[u,v]^\top \$ 有
-
-$$
-I(x+u,y+v,t+1)\approx I(x,y,t)+\nabla I^\top \mathbf{u}+I_t .
-$$
-
-在窗口 \$\Omega\$ 内最小二乘：
-
-$$
-E(\mathbf{u})=\sum_{\mathbf{x}\in\Omega} w(\mathbf{x})\big(\nabla I(\mathbf{x})^\top \mathbf{u}+I_t(\mathbf{x})\big)^2 .
-$$
-
-得到正规方程（\$\mathbf{G}\$ 为结构张量）：
-
-$$
-\underbrace{\sum_{\Omega} w\,\nabla I\,\nabla I^\top}_{\mathbf{G}}\;\mathbf{u}
-=
--\sum_{\Omega} w\,\nabla I\, I_t .
-$$
-
-**角点可跟踪性（Shi–Tomasi）**：
-
-$$
-R=\lambda_{\min}(\mathbf{G})>\tau .
-$$
-
-实现：`goodFeaturesToTrack` 获取角点，`calcOpticalFlowPyrLK` 金字塔解；以**中位数**去噪并用存活点的包围盒更新 \$(x,y,w,h)\$。
-
----
-
-### 2) 局部归一化互相关模板匹配（NCC，灰度，邻域搜索）
-
-对初始模板 \$T\$ 与当前帧灰度图 \$I\$ 计算（OpenCV `TM_CCOEFF_NORMED`）：
-
-$$
-R(x,y)=
-\frac{\sum_{i,j}\big(T_{ij}-\bar T\big)\big(I_{x+i,y+j}-\overline{I}_{x,y}\big)}
-{\sqrt{\sum_{i,j}\big(T_{ij}-\bar T\big)^2}\;
- \sqrt{\sum_{i,j}\big(I_{x+i,y+j}-\overline{I}_{x,y}\big)^2}}
-\in[-1,1].
-$$
-
-只在上一帧包围盒 \$B=(x,y,w,h)\$ 的**自适应扩展窗口**内搜索：
-
-$$
-\alpha=\max\!\left(\alpha_0,\;1.2\cdot\min\!\left\{\frac{W_T}{w},\,\frac{H_T}{h}\right\}\right),
-$$
-
-若 \$\max R\ge s\_{\min}\$ 则接受匹配并矫正漂移。
-
----
-
-### 3) HSV 直方图反投影 + CamShift 恢复
-
-在初始 ROI 估计二维直方图 \$p(h,s)\$，对整帧进行**反投影**：
-
-$$
-b(x,y)=p\big(H(x,y),\,S(x,y)\big)\in[0,1].
-$$
-
-在 \$b\$ 上运行 **CamShift** 得到窗口 \$B'\$，并以面积一致性判据过滤：
-
-$$
-0.7\,A_{\text{prev}} \;<\; A' \;<\; 1.3\,A_{\text{prev}},\qquad A'=w'h'.
-$$
-
----
-
-### 4) Lab 主色 + 颜色相似性快速找回（无 SciPy）
-
-模板降采样至 CIE-Lab 并量化 16 档：
-
-$$
-\tilde L=\Big\lfloor\frac{L}{16}\Big\rfloor,\quad
-\tilde a=\Big\lfloor\frac{a}{16}\Big\rfloor,\quad
-\tilde b=\Big\lfloor\frac{b}{16}\Big\rfloor,
-$$
-
-以直方图众数得主色 \$\mathbf{c}\_0=\[L\_0,a\_0,b\_0]^\top\$。
-
-对当前帧计算 Lab 欧氏距离并按 10% 分位阈值得到掩膜：
-
-$$
-d(x,y)=\big\|\mathbf{c}(x,y)-\mathbf{c}_0\big\|_2,\qquad
-\mathbb{M}(x,y)=\mathbf{1}\{d(x,y)<t\}.
-$$
-
-在中心 \$1/3\$ 视野内取各连通域外接矩形 \$(w\_i,h\_i)\$，按最小尺度差选择候选：
-
-$$
-\hat{i}=\arg\min_i \big|w_i h_i - A_{\text{prev}}\big|.
-$$
-
----
-
-### 5) 自适应模板更新与稳定性判据
-
-以面积 \$A\_t=w\_t h\_t\$ 的相对变化衡量稳定：
-
-$$
-\frac{|A_t-A_{t-1}|}{\max(A_{t-1},1)}<\tau_{\text{area}}
-\;\Rightarrow\; s\leftarrow s+1 .
-$$
-
-当 \$s\ge N\_{\text{stable}}\$ 时，以倍率 \$r\$ 扩展当前 ROI 更新模板；并依据稳定/异常**动态调整**模板匹配间隔 \$K\$（稳定↑，异常↓）。若
-
-$$
-A_t\notin\big[\alpha_{\min}A_{\text{ref}},\,\alpha_{\max}A_{\text{ref}}\big],
-$$
-
-则触发模板/颜色快速纠偏。
-
----
-
-### 6) 多源融合优先级
-
-1. **KLT 光流**成功（足够内点、残差可接受）→ 直接更新 \$B\$；
-2. 周期或异常触发 **NCC 局部模板匹配** → 减漂移；
-3. 光流/模板失败 → **Lab 主色相似性**快速找回；
-4. 颜色弱或遮挡严重 → **反投影 + CamShift** 辅助恢复；
-5. 达到稳定阈值 → **模板自更新** 并刷新角点集。
-
-> 以上流程在**速度**（邻域搜索、量化统计）与**鲁棒性**（多模态证据、尺度/面积约束、外点抑制）之间取得平衡，适配无人机等小目标的实时跟踪。
-
----
-
-如果你仍遇到不渲染的情况，请检查：
-
-* `README.md` 中 `$$...$$` 公式前后是否各有**一行空行**；
-* 公式是否被 4 个空格或 Tab **缩进**（那会被当作代码块）；
-* 是否在表格单元格内（GFM 表格对公式的支持较差，建议表格外书写）。
-
----
 
 ## 🖥️ 环境依赖与安装
 
