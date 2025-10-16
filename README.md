@@ -17,8 +17,8 @@ Catch Anything V3 是一个融合多策略的目标追踪系统，专为处理�
 
 ## 📢 Latest Updates
 
-- **2025-10-15**： **Catch Anything V3 is released.**（卡尔曼辅助 + 多颜色空间找回 + 兼顾高帧率）。
-- **Aug-8-31**: Catch Anything V2 **[Code]** has been uploaded.- **[Test video download link](https://hkustgz-my.sharepoint.com/:v:/g/personal/jwen341_connect_hkust-gz_edu_cn/EXq3_f4CBn5JqND1mnNP1gQBDNmhY5jhLA4gOI3i644RMg?e=TKVQs1)**
+- **Oct-10-25**： **Catch Anything V3 is released.**（卡尔曼辅助 + 多颜色空间找回 + 兼顾高帧率）。
+- **Aug-8-25**: Catch Anything V2 **[Code]** has been uploaded.- **[Test video download link](https://hkustgz-my.sharepoint.com/:v:/g/personal/jwen341_connect_hkust-gz_edu_cn/EXq3_f4CBn5JqND1mnNP1gQBDNmhY5jhLA4gOI3i644RMg?e=TKVQs1)**
  🎉🎉
 - **Aug-7-25**: [Catch Anything V2 [Demo]](https://www.bilibili.com/video/BV1J1tNzNEag/) has been uploaded. 🎬🎬
 - **Aug-2-25**: [Catch Anything V1 [Project]](https://github.com/Jeffry-wen/Drone-Tracking-with-Optical-Flow-and-Color-Histogram) is released. 🔥🔥
