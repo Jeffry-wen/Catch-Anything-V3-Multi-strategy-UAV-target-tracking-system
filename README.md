@@ -1,4 +1,4 @@
-# 🚁 Catch Anything V3：The multi-strategy unmanned aerial vehicle target tracking system assisted by Kalman filtering
+# 🚁 Catch Anything V3：The multi-strategy UAV target tracking system assisted by Kalman filtering
 
 <p align="center">
     <img src="https://i.imgur.com/waxVImv.png" alt="Oryx Video-ChatGPT">
@@ -17,7 +17,7 @@ Catch Anything V3 是一个融合多策略的目标追踪系统，专为处理�
 
 ## 📢 Latest Updates
 
-- **Oct-10-25**： **Catch Anything V3 is released.**（卡尔曼辅助 + 多颜色空间找回 + 兼顾高帧率）。
+- **Oct-10-25**： **Catch Anything V3 is released.**。
 - **Aug-8-25**: Catch Anything V2 **[Code]** has been uploaded.- **[Test video download link](https://hkustgz-my.sharepoint.com/:v:/g/personal/jwen341_connect_hkust-gz_edu_cn/EXq3_f4CBn5JqND1mnNP1gQBDNmhY5jhLA4gOI3i644RMg?e=TKVQs1)**
  🎉🎉
 - **Aug-7-25**: [Catch Anything V2 [Demo]](https://www.bilibili.com/video/BV1J1tNzNEag/) has been uploaded. 🎬🎬
